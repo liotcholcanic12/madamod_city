@@ -6,20 +6,21 @@
 </head>
 <body>
     <div class="container mt-5">
-        <h1>School Task Tracker - Working!</h1>
-        <div class="alert alert-success">
-            Vercel deployment is successful! 🎉
-        </div>
-        <div id="content"></div>
+        <h1>Madamod & المنشاة Task Tracker</h1>
+        <div class="alert alert-success">✅ Vercel deployment successful!</div>
+        <h3>Cities:</h3>
+        <ul id="cities"></ul>
     </div>
     <script>
         fetch('/api/cities')
             .then(r => r.json())
             .then(data => {
-                document.getElementById('content').innerHTML = 
-                    '<h3>Cities:</h3><ul>' + 
-                    data.map(c => `<li>${c.name}</li>`).join('') + 
-                    '</ul>';
+                const list = document.getElementById('cities');
+                data.forEach(city => {
+                    const li = document.createElement('li');
+                    li.textContent = city.name;
+                    list.appendChild(li);
+                });
             });
     </script>
 </body>
