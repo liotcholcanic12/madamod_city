@@ -1,22 +1,110 @@
-import os
-from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file
-from supabase import create_client, Client
-from dotenv import load_dotenv
+import sqlite3
+import os
 import io
-import openpyxl
-from openpyxl.styles import Font, PatternFill
-
-# Load environment variables
-load_dotenv()
+from datetime import datetime
+import json
 
 app = Flask(__name__)
 
-# Initialize Supabase
-supabase: Client = create_client(
-    os.environ.get('SUPABASE_URL'),
-    os.environ.get('SUPABASE_KEY')
-)
+# Use a persistent file path that Vercel allows (temporary directory)
+DATABASE = '/tmp/school_tasks.db'
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db()
+    
+    # Create tables
+    conn.execute('''CREATE TABLE IF NOT EXISTS cities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
+    conn.execute('''CREATE TABLE IF NOT EXISTS classes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        city_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (city_id) REFERENCES cities (id),
+        UNIQUE(city_id, name)
+    )''')
+    
+    conn.execute('''CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        city_id INTEGER NOT NULL,
+        class_id INTEGER,
+        total_points INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (city_id) REFERENCES cities (id),
+        FOREIGN KEY (class_id) REFERENCES classes (id),
+        UNIQUE(name, city_id)
+    )''')
+    
+    conn.execute('''CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        class_id INTEGER NOT NULL,
+        task_name TEXT NOT NULL,
+        max_points INTEGER DEFAULT 100,
+        FOREIGN KEY (class_id) REFERENCES classes (id) ON DELETE CASCADE,
+        UNIQUE(class_id, task_name)
+    )''')
+    
+    conn.execute('''CREATE TABLE IF NOT EXISTS approvals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL,
+        class_id INTEGER NOT NULL,
+        task_id INTEGER NOT NULL,
+        grade_points INTEGER NOT NULL,
+        mentor_signature TEXT NOT NULL,
+        approval_date DATE NOT NULL,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students (id),
+        FOREIGN KEY (class_id) REFERENCES classes (id),
+        FOREIGN KEY (task_id) REFERENCES tasks (id)
+    )''')
+    
+    conn.execute('''CREATE TABLE IF NOT EXISTS activity_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action_type TEXT NOT NULL,
+        description TEXT NOT NULL,
+        user_name TEXT,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
+    # Insert sample data if empty
+    cursor = conn.execute('SELECT COUNT(*) as count FROM cities')
+    if cursor.fetchone()['count'] == 0:
+        # Insert cities
+        conn.execute("INSERT INTO cities (name) VALUES ('Madamod'), ('المنشاة')")
+        
+        # Insert classes
+        conn.execute("INSERT INTO classes (city_id, name) SELECT id, 'Mathematics 101' FROM cities WHERE name = 'Madamod'")
+        conn.execute("INSERT INTO classes (city_id, name) SELECT id, 'Physics 202' FROM cities WHERE name = 'Madamod'")
+        conn.execute("INSERT INTO classes (city_id, name) SELECT id, 'Literature 105' FROM cities WHERE name = 'Madamod'")
+        conn.execute("INSERT INTO classes (city_id, name) SELECT id, 'الرياضيات' FROM cities WHERE name = 'المنشاة'")
+        conn.execute("INSERT INTO classes (city_id, name) SELECT id, 'العلوم' FROM cities WHERE name = 'المنشاة'")
+        conn.execute("INSERT INTO classes (city_id, name) SELECT id, 'اللغة العربية' FROM cities WHERE name = 'المنشاة'")
+        
+        # Insert tasks
+        conn.execute("INSERT INTO tasks (class_id, task_name, max_points) SELECT id, 'Algebra Worksheet', 50 FROM classes WHERE name = 'Mathematics 101'")
+        conn.execute("INSERT INTO tasks (class_id, task_name, max_points) SELECT id, 'Calculus Problems', 100 FROM classes WHERE name = 'Mathematics 101'")
+        conn.execute("INSERT INTO tasks (class_id, task_name, max_points) SELECT id, 'Newton''s Laws Lab', 100 FROM classes WHERE name = 'Physics 202'")
+        conn.execute("INSERT INTO tasks (class_id, task_name, max_points) SELECT id, 'Shakespeare Essay', 100 FROM classes WHERE name = 'Literature 105'")
+        conn.execute("INSERT INTO tasks (class_id, task_name, max_points) SELECT id, 'ورقة عمل', 50 FROM classes WHERE name = 'الرياضيات'")
+        conn.execute("INSERT INTO tasks (class_id, task_name, max_points) SELECT id, 'تجربة علمية', 100 FROM classes WHERE name = 'العلوم'")
+    
+    conn.commit()
+    conn.close()
+
+# Initialize database
+init_db()
 
 @app.route('/')
 def index():
@@ -24,94 +112,66 @@ def index():
 
 @app.route('/api/cities')
 def get_cities():
-    try:
-        result = supabase.table('cities').select('*').order('name').execute()
-        return jsonify(result.data)
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify([])
+    db = get_db()
+    cities = db.execute('SELECT * FROM cities ORDER BY name').fetchall()
+    db.close()
+    return jsonify([dict(c) for c in cities])
 
 @app.route('/api/classes')
 def get_classes():
-    try:
-        city_id = request.args.get('city_id', type=int)
-        query = supabase.table('classes').select('*')
-        if city_id:
-            query = query.eq('city_id', city_id)
-        result = query.order('name').execute()
-        return jsonify(result.data)
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify([])
+    city_id = request.args.get('city_id', type=int)
+    db = get_db()
+    if city_id:
+        classes = db.execute('SELECT * FROM classes WHERE city_id = ? ORDER BY name', (city_id,)).fetchall()
+    else:
+        classes = db.execute('SELECT * FROM classes ORDER BY name').fetchall()
+    db.close()
+    return jsonify([dict(c) for c in classes])
 
 @app.route('/api/tasks/<int:class_id>')
 def get_tasks(class_id):
-    try:
-        result = supabase.table('tasks').select('*').eq('class_id', class_id).order('task_name').execute()
-        return jsonify(result.data)
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify([])
+    db = get_db()
+    tasks = db.execute('SELECT * FROM tasks WHERE class_id = ? ORDER BY task_name', (class_id,)).fetchall()
+    db.close()
+    return jsonify([dict(t) for t in tasks])
 
 @app.route('/api/students')
 def get_students():
-    try:
-        city_id = request.args.get('city_id', type=int)
-        
-        # Get all students first
-        query = supabase.table('students').select('*, cities(name), classes(name)')
-        if city_id:
-            query = query.eq('city_id', city_id)
-        students = query.execute()
-        
-        # Process each student to add counts
-        for student in students.data:
-            # Get city name
-            if student.get('cities'):
-                student['city_name'] = student['cities']['name']
-            else:
-                student['city_name'] = 'Unknown'
-            
-            # Get class name
-            if student.get('classes'):
-                student['class_name'] = student['classes']['name']
-            else:
-                student['class_name'] = 'Not Assigned'
-            
-            # Count completed tasks
-            approvals = supabase.table('approvals').select('id').eq('student_id', student['id']).execute()
-            student['tasks_completed'] = len(approvals.data)
-            
-            # Count total tasks in class
-            if student.get('class_id'):
-                tasks = supabase.table('tasks').select('id').eq('class_id', student['class_id']).execute()
-                student['total_tasks'] = len(tasks.data)
-            else:
-                student['total_tasks'] = 0
-            
-            # Remove nested objects
-            if 'cities' in student:
-                del student['cities']
-            if 'classes' in student:
-                del student['classes']
-        
-        # Sort by total points
-        students.data.sort(key=lambda x: x.get('total_points', 0), reverse=True)
-        return jsonify(students.data)
-    except Exception as e:
-        print(f"Error in get_students: {e}")
-        return jsonify([])
+    city_id = request.args.get('city_id', type=int)
+    db = get_db()
+    
+    query = '''
+        SELECT 
+            s.*,
+            c.name as city_name,
+            cl.name as class_name,
+            (SELECT COUNT(*) FROM approvals a WHERE a.student_id = s.id) as tasks_completed,
+            (SELECT COUNT(*) FROM tasks t WHERE t.class_id = s.class_id) as total_tasks
+        FROM students s
+        JOIN cities c ON s.city_id = c.id
+        LEFT JOIN classes cl ON s.class_id = cl.id
+    '''
+    params = []
+    if city_id:
+        query += ' WHERE s.city_id = ?'
+        params.append(city_id)
+    query += ' ORDER BY s.total_points DESC'
+    
+    students = db.execute(query, params).fetchall()
+    db.close()
+    return jsonify([dict(s) for s in students])
 
 @app.route('/api/students', methods=['POST'])
 def add_student():
     try:
         data = request.json
-        result = supabase.table('students').insert({
-            'name': data['name'],
-            'city_id': data['city_id'],
-            'class_id': data.get('class_id'),
-            'total_points': 0
-        }).execute()
+        db = get_db()
+        db.execute(
+            'INSERT INTO students (name, city_id, class_id, total_points) VALUES (?, ?, ?, 0)',
+            (data['name'], data['city_id'], data.get('class_id'))
+        )
+        db.commit()
+        db.close()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -120,79 +180,84 @@ def add_student():
 def add_approval():
     try:
         data = request.json
+        db = get_db()
         
-        # Find or create student
-        existing = supabase.table('students').select('*').eq('name', data['student_name']).eq('city_id', data['city_id']).execute()
+        # Check if student exists
+        student = db.execute(
+            'SELECT id, total_points FROM students WHERE name = ? AND city_id = ?',
+            (data['student_name'], data['city_id'])
+        ).fetchone()
         
-        if len(existing.data) == 0:
-            new_student = supabase.table('students').insert({
-                'name': data['student_name'],
-                'city_id': data['city_id'],
-                'class_id': data['class_id'],
-                'total_points': 0
-            }).execute()
-            student_id = new_student.data[0]['id']
+        if not student:
+            # Create new student
+            cursor = db.execute(
+                'INSERT INTO students (name, city_id, class_id, total_points) VALUES (?, ?, ?, 0)',
+                (data['student_name'], data['city_id'], data['class_id'])
+            )
+            student_id = cursor.lastrowid
             current_total = 0
         else:
-            student_id = existing.data[0]['id']
-            current_total = existing.data[0]['total_points']
+            student_id = student['id']
+            current_total = student['total_points']
         
         # Add approval
-        supabase.table('approvals').insert({
-            'student_id': student_id,
-            'class_id': data['class_id'],
-            'task_id': data['task_id'],
-            'grade_points': data['grade_points'],
-            'mentor_signature': data['mentor_signature'],
-            'approval_date': data['approval_date']
-        }).execute()
+        db.execute(
+            '''INSERT INTO approvals (student_id, class_id, task_id, grade_points, mentor_signature, approval_date)
+               VALUES (?, ?, ?, ?, ?, ?)''',
+            (student_id, data['class_id'], data['task_id'], data['grade_points'], 
+             data['mentor_signature'], data['approval_date'])
+        )
         
         # Update total points
         new_total = current_total + data['grade_points']
-        supabase.table('students').update({
-            'total_points': new_total
-        }).eq('id', student_id).execute()
+        db.execute('UPDATE students SET total_points = ? WHERE id = ?', (new_total, student_id))
         
+        # Log activity
+        db.execute(
+            'INSERT INTO activity_log (action_type, description, user_name) VALUES (?, ?, ?)',
+            ('ADD_APPROVAL', f"Added {data['grade_points']} points for {data['student_name']}", data['mentor_signature'])
+        )
+        
+        db.commit()
+        db.close()
         return jsonify({'success': True, 'student_total': new_total})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/api/students/<int:student_id>')
 def get_student_details(student_id):
-    try:
-        student = supabase.table('students').select('*, cities(name), classes(name)').eq('id', student_id).execute()
-        approvals = supabase.table('approvals').select('*, tasks(task_name, max_points)').eq('student_id', student_id).order('approval_date', desc=True).execute()
-        
-        if student.data:
-            student_data = student.data[0]
-            if student_data.get('cities'):
-                student_data['city_name'] = student_data['cities']['name']
-            if student_data.get('classes'):
-                student_data['class_name'] = student_data['classes']['name']
-        
-        return jsonify({
-            'student': student.data[0] if student.data else None,
-            'approvals': approvals.data
-        })
-    except Exception as e:
-        return jsonify({'student': None, 'approvals': []})
+    db = get_db()
+    student = db.execute(
+        'SELECT s.*, c.name as city_name, cl.name as class_name FROM students s JOIN cities c ON s.city_id = c.id LEFT JOIN classes cl ON s.class_id = cl.id WHERE s.id = ?',
+        (student_id,)
+    ).fetchone()
+    
+    approvals = db.execute(
+        'SELECT a.*, t.task_name, t.max_points FROM approvals a JOIN tasks t ON a.task_id = t.id WHERE a.student_id = ? ORDER BY a.approval_date DESC',
+        (student_id,)
+    ).fetchall()
+    db.close()
+    
+    return jsonify({
+        'student': dict(student) if student else None,
+        'approvals': [dict(a) for a in approvals]
+    })
 
 @app.route('/api/activity-log')
 def get_activity_log():
-    try:
-        result = supabase.table('activity_log').select('*').order('timestamp', desc=True).limit(50).execute()
-        return jsonify(result.data)
-    except Exception as e:
-        return jsonify([])
+    db = get_db()
+    logs = db.execute('SELECT * FROM activity_log ORDER BY timestamp DESC LIMIT 50').fetchall()
+    db.close()
+    return jsonify([dict(l) for l in logs])
 
 @app.route('/api/classes', methods=['POST'])
 def add_class():
     try:
         data = request.json
-        supabase.table('classes').insert({
-            'city_id': data['city_id'],
-            'name': data['name']
-        }).execute()
+        db = get_db()
+        db.execute('INSERT INTO classes (city_id, name) VALUES (?, ?)', (data['city_id'], data['name']))
+        db.commit()
+        db.close()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -201,11 +266,11 @@ def add_class():
 def add_task():
     try:
         data = request.json
-        supabase.table('tasks').insert({
-            'class_id': data['class_id'],
-            'task_name': data['task_name'],
-            'max_points': data.get('max_points', 100)
-        }).execute()
+        db = get_db()
+        db.execute('INSERT INTO tasks (class_id, task_name, max_points) VALUES (?, ?, ?)',
+                   (data['class_id'], data['task_name'], data.get('max_points', 100)))
+        db.commit()
+        db.close()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -213,18 +278,13 @@ def add_task():
 @app.route('/api/approvals/<int:approval_id>', methods=['DELETE'])
 def delete_approval(approval_id):
     try:
-        approval = supabase.table('approvals').select('student_id, grade_points').eq('id', approval_id).execute()
-        if approval.data:
-            student_id = approval.data[0]['student_id']
-            points = approval.data[0]['grade_points']
-            
-            supabase.table('approvals').delete().eq('id', approval_id).execute()
-            
-            student = supabase.table('students').select('total_points').eq('id', student_id).execute()
-            if student.data:
-                new_total = student.data[0]['total_points'] - points
-                supabase.table('students').update({'total_points': new_total}).eq('id', student_id).execute()
-        
+        db = get_db()
+        approval = db.execute('SELECT student_id, grade_points FROM approvals WHERE id = ?', (approval_id,)).fetchone()
+        if approval:
+            db.execute('DELETE FROM approvals WHERE id = ?', (approval_id,))
+            db.execute('UPDATE students SET total_points = total_points - ? WHERE id = ?', (approval['grade_points'], approval['student_id']))
+            db.commit()
+        db.close()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -232,12 +292,26 @@ def delete_approval(approval_id):
 @app.route('/api/download-excel')
 def download_excel():
     try:
-        city_id = request.args.get('city_id', type=int)
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill
         
-        query = supabase.table('students').select('*, cities(name), classes(name)')
+        city_id = request.args.get('city_id', type=int)
+        db = get_db()
+        
+        query = '''
+            SELECT s.name, c.name as city_name, cl.name as class_name, s.total_points
+            FROM students s
+            JOIN cities c ON s.city_id = c.id
+            LEFT JOIN classes cl ON s.class_id = cl.id
+        '''
+        params = []
         if city_id:
-            query = query.eq('city_id', city_id)
-        students = query.execute()
+            query += ' WHERE s.city_id = ?'
+            params.append(city_id)
+        query += ' ORDER BY s.total_points DESC'
+        
+        students = db.execute(query, params).fetchall()
+        db.close()
         
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -249,12 +323,10 @@ def download_excel():
             cell.font = Font(bold=True, color="FFFFFF")
             cell.fill = PatternFill(start_color="0D6EFD", end_color="0D6EFD", fill_type="solid")
         
-        for row, student in enumerate(students.data, 2):
-            city_name = student.get('cities', {}).get('name', 'Unknown') if student.get('cities') else 'Unknown'
-            class_name = student.get('classes', {}).get('name', 'Not Assigned') if student.get('classes') else 'Not Assigned'
+        for row, student in enumerate(students, 2):
             ws.cell(row=row, column=1, value=student['name'])
-            ws.cell(row=row, column=2, value=city_name)
-            ws.cell(row=row, column=3, value=class_name)
+            ws.cell(row=row, column=2, value=student['city_name'])
+            ws.cell(row=row, column=3, value=student['class_name'] or 'Not Assigned')
             ws.cell(row=row, column=4, value=student['total_points'])
         
         excel_file = io.BytesIO()
