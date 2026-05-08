@@ -1,0 +1,14 @@
+{
+  "name": "school-task-tracker",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@netlify/database": "latest",
+    "@netlify/functions": "latest",
+    "drizzle-orm": "beta",
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "beta"
+  }
+}
