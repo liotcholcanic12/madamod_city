@@ -138,6 +138,8 @@ def get_tasks(class_id):
 @app.route('/api/students')
 def get_students():
     city_id = request.args.get('city_id', type=int)
+    class_id = request.args.get('class_id', type=int)  # Add this line
+    
     db = get_db()
     
     query = '''
@@ -150,11 +152,18 @@ def get_students():
         FROM students s
         JOIN cities c ON s.city_id = c.id
         LEFT JOIN classes cl ON s.class_id = cl.id
+        WHERE 1=1
     '''
     params = []
+    
     if city_id:
-        query += ' WHERE s.city_id = ?'
+        query += ' AND s.city_id = ?'
         params.append(city_id)
+    
+    if class_id:  # Add this block
+        query += ' AND s.class_id = ?'
+        params.append(class_id)
+    
     query += ' ORDER BY s.total_points DESC'
     
     students = db.execute(query, params).fetchall()
