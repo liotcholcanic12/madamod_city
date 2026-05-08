@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+    <title>School Task Tracker - Madamod & المنشاة</title>
+    
+    <!-- Bootstrap CSS + DataTables -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bs-primary: #0d6efd;
+            --bs-primary-rgb: 13, 110, 253;
+        }
+        .navbar {
+            background-color: #0d6efd !important;
+        }
+        .btn-primary {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        .table thead th {
+            background-color: #e7f1ff;
+            color: #0a58ca;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: #0d6efd !important;
+            color: white !important;
+            border-color: #0d6efd !important;
+        }
+        .card-header {
+            background-color: #e7f1ff;
+            color: #0a58ca;
+            font-weight: bold;
+        }
+        
+        /* Activity Log Styling */
+        .activity-log-container {
+            max-height: 250px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+        }
+        .activity-item {
+            padding: 8px;
+            border-bottom: 1px solid #dee2e6;
+            transition: background-color 0.2s;
+        }
+        .activity-item:hover {
+            background-color: #f8f9fa;
+        }
+        .activity-time {
+            color: #6c757d;
+            font-size: 0.75rem;
+        }
+        .activity-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+        }
+        
+        /* Student summary card */
+        .student-summary-card {
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 4px solid #0d6efd;
+        }
+        .student-summary-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .card-body {
+                padding: 1rem;
+            }
+            
+            #approvalForm .row > div {
+                margin-bottom: 10px;
+            }
+            
+            .dataTables_wrapper {
+                overflow-x: auto;
+            }
+            
+            #studentsTable {
+                font-size: 14px;
+            }
+            
+            .btn {
+                width: 100%;
+                margin-bottom: 5px;
+            }
+            
+            .activity-log-container {
+                max-height: 150px;
+            }
+        }
+        
+/* Class filter mobile optimization */
+@media (max-width: 768px) {
+    #classFilter {
+        font-size: 14px;
+        padding: 8px;
+    }
+    
+    /* Make DataTables controls stack nicely on mobile */
+    .dataTables_length,
+    .dataTables_filter {
+        margin-bottom: 10px;
+    }
+    
+    .dataTables_length select,
+    .dataTables_filter input {
+        width: auto;
+        max-width: 120px;
+    }
+    
+    /* Keep action buttons from wrapping too much */
+    .action-buttons {
+        flex-direction: column;
+        gap: 3px;
+    }
+    
+    .action-buttons .btn-sm {
+        width: 100%;
+        margin: 0;
+    }
+}
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .card-header {
+                font-size: 1rem;
+            }
+            
+            #studentsTable {
+                font-size: 12px;
+            }
+        }
+        
+        .btn-view {
+            background-color: #17a2b8;
+            border-color: #17a2b8;
+            color: #fff;
+            padding: 2px 6px;
+            font-size: 0.8rem;
+            margin: 0 2px;
+        }
+        
+        .student-points {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #28a745;
+        }
+        
+        .completion-badge {
+            font-size: 0.8rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+        }
+
+        .action-buttons {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.btn-edit {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
+    padding: 2px 6px;
+    font-size: 0.8rem;
+    margin: 0 2px;
+}
+.btn-edit:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+    color: #000;
+}
+.btn-delete {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
+    padding: 2px 6px;
+    font-size: 0.8rem;
+    margin: 0 2px;
+}
+.btn-delete:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+    color: #fff;
+}
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-tasks me-2"></i>School Task Tracker - Madamod & المنشاة
+            </span>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- City Selection Only -->
+        <div class="row mb-4">
+            <div class="col-md-6 mx-auto">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-city me-2"></i>Select City
+                    </div>
+                    <div class="card-body">
+                        <select id="citySelector" class="form-select">
+                            <option value="">All Cities</option>
+                        </select>
+                        <small class="text-muted mt-2 d-block">
+                            <i class="fas fa-info-circle"></i> Choose a city to view its data
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Class Filter Row -->
+<div class="row mb-4">
+    <div class="col-md-6 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-filter me-2"></i>Filter by Class
+            </div>
+            <div class="card-body">
+                <select id="classFilter" class="form-select">
+                    <option value="">All Classes</option>
+                </select>
+                <small class="text-muted mt-2 d-block">
+                    <i class="fas fa-info-circle"></i> Select a class to filter students
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+        <!-- Student Summary Section (Cumulative Points) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-trophy me-2"></i>Student Summary (Cumulative Points)
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="studentsTable" class="table table-striped table-bordered" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Student Name</th>
+                                <th>City</th>
+                                <th>Class</th>
+                                <th>Total Points</th>
+                                <th>Tasks Completed</th>
+                                <th>Completion %</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-bolt me-2"></i>Quick Actions
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#addClassModal">
+                            <i class="fas fa-plus-circle me-2"></i>Add Class
+                        </button>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+                            <i class="fas fa-tasks me-2"></i>Add Task
+                        </button>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-outline-success w-100" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+                            <i class="fas fa-user-plus me-2"></i>Add Student
+                        </button>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-success w-100" id="downloadExcelBtn">
+                            <i class="fas fa-file-excel me-2"></i>Download Excel
+                        </button>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-info w-100" onclick="refreshAll()">
+                            <i class="fas fa-sync-alt me-2"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Approval Form -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-pen-alt me-2"></i>Record New Task Approval
+            </div>
+            <div class="card-body">
+                <form id="approvalForm">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-bold">Student Name</label>
+                            <input type="text" class="form-control" id="studentName" placeholder="e.g., John Doe" required>
+                            <small class="text-muted">New students will be auto-added</small>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-bold">Class</label>
+                            <select class="form-select" id="classSelect" required>
+                                <option value="">Select class first</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label fw-bold">Task</label>
+                            <select class="form-select" id="taskSelect" required>
+                                <option value="">Select task</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1 mb-3">
+                            <label class="form-label fw-bold">Points</label>
+                            <input type="number" class="form-control" id="gradePoints" required min="0">
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label fw-bold">Mentor</label>
+                            <input type="text" class="form-control" id="mentorSignature" required>
+                        </div>
+                        <div class="col-md-1 mb-3">
+                            <label class="form-label fw-bold">Date</label>
+                            <input type="date" class="form-control" id="approvalDate" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Record Approval
+                            </button>
+                            <button type="reset" class="btn btn-secondary ms-2">
+                                <i class="fas fa-undo me-2"></i>Clear
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-history me-2"></i>Recent Activity Log
+            </div>
+            <div class="card-body p-2">
+                <div id="activityLog" class="activity-log-container">
+                    <div class="text-muted text-center p-3">
+                        <i class="fas fa-spinner fa-spin me-2"></i>Loading activities...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Details Modal -->
+        <div class="modal fade" id="studentDetailsModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-user-graduate me-2"></i>Student Details
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="studentDetailsContent"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Class Modal -->
+        <div class="modal fade" id="addClassModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-school me-2"></i>Add New Class
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">City</label>
+                            <select class="form-select" id="newClassCity"></select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Class Name</label>
+                            <input type="text" class="form-control" id="newClassName" placeholder="e.g., Mathematics 101">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="saveClassBtn">Save Class</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Task Modal -->
+        <div class="modal fade" id="addTaskModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-tasks me-2"></i>Add New Task
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Class</label>
+                            <select class="form-select" id="newTaskClass"></select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Task Name</label>
+                            <input type="text" class="form-control" id="newTaskName">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Max Points</label>
+                            <input type="number" class="form-control" id="newTaskMaxPoints" value="100">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="saveTaskBtn">Save Task</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Student Modal -->
+        <div class="modal fade" id="addStudentModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-user-plus me-2"></i>Add New Student
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Student Name</label>
+                            <input type="text" class="form-control" id="newStudentName">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">City</label>
+                            <select class="form-select" id="newStudentCity"></select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Class (Optional)</label>
+                            <select class="form-select" id="newStudentClass">
+                                <option value="">No class assigned</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="saveStudentBtn">Save Student</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    
+    <script>
+    let studentsTable;
+    let currentCityId = null;
+    
+    // Initialize page
+    $(document).ready(function() {
+        loadCities();
+        loadActivityLog();
+        loadStudents();
+
+        
+        // Set today's date as default
+        $('#approvalDate').val(new Date().toISOString().split('T')[0]);
+        
+        // Initialize DataTable
+        studentsTable = $('#studentsTable').DataTable({
+            pageLength: 25,
+            order: [[4, 'desc']],
+            columnDefs: [
+                { type: 'num', targets: 0 },
+                { targets: 7, orderable: false }
+            ],
+            language: {
+                search: "Search students:",
+                lengthMenu: "Show _MENU_ students per page"
+            }
+        });
+        
+        // City selector change
+        $('#citySelector').change(function() {
+            currentCityId = $(this).val();
+            $('#classFilter').val('');
+            loadStudents();
+            loadActivityLog();
+        });
+        
+        // Class selector change for approvals
+        $('#classSelect').change(function() {
+            const classId = $(this).val();
+            if (classId) {
+                loadTasks(classId);
+            }
+        });
+    });
+    
+    // Load cities
+    function loadCities() {
+        $.get('/api/cities', function(cities) {
+            let options = '<option value="">All Cities</option>';
+            cities.forEach(c => {
+                options += `<option value="${c.id}">${c.name}</option>`;
+            });
+            $('#citySelector').html(options);
+            $('#newClassCity').html(options);
+            $('#newStudentCity').html(options);
+            
+            // Load classes for selects
+            loadClassesForSelect();
+            // Load students after cities
+            loadStudents();
+        });
+    }
+    
+    // Load classes for selects
+function loadClassesForSelect() {
+    $.get('/api/classes', function(classes) {
+        let options = '<option value="">Select class</option>';
+        let filterOptions = '<option value="">All Classes</option>';
+        
+        classes.forEach(c => {
+            options += `<option value="${c.id}">${c.name}</option>`;
+            filterOptions += `<option value="${c.id}">${c.name}</option>`;
+        });
+        
+        $('#classSelect').html(options);
+        $('#newTaskClass').html(options);
+        $('#newStudentClass').html('<option value="">No class assigned</option>' + options);
+        $('#classFilter').html(filterOptions);
+    });
+}
+    
+    // Load tasks for selected class
+    function loadTasks(classId) {
+        $.get(`/api/tasks/${classId}`, function(tasks) {
+            let options = '<option value="">Select task</option>';
+            tasks.forEach(t => {
+                options += `<option value="${t.id}" data-max="${t.max_points}">${t.task_name} (Max: ${t.max_points})</option>`;
+            });
+            $('#taskSelect').html(options);
+        });
+    }
+    
+    // Load students with cumulative points
+// Load students with cumulative points
+function loadStudents() {
+    let url = '/api/students';
+    let params = [];
+    
+    if (currentCityId) {
+        params.push(`city_id=${currentCityId}`);
+    }
+    
+    // Get the selected class filter
+    const selectedClass = $('#classFilter').val();
+    if (selectedClass) {
+        params.push(`class_id=${selectedClass}`);
+    }
+    
+    if (params.length > 0) {
+        url += '?' + params.join('&');
+    }
+    
+    $.get(url, function(students) {
+        studentsTable.clear();
+        
+        if (!students || students.length === 0) {
+            studentsTable.draw();
+            $('#studentsTable_info').text('Showing 0 students');
+            return;
+        }
+        
+        students.forEach((s, index) => {
+            let completionPct = 0;
+            let completionClass = 'bg-secondary';
+            let tasksCompleted = s.tasks_completed || 0;
+            let totalTasks = s.total_tasks || 0;
+            
+            if (totalTasks > 0) {
+                completionPct = (tasksCompleted / totalTasks * 100);
+                if (completionPct >= 80) completionClass = 'bg-success';
+                else if (completionPct >= 50) completionClass = 'bg-warning';
+                else completionClass = 'bg-danger';
+            }
+            
+            studentsTable.row.add([
+                index + 1,
+                s.name,
+                s.city_name || 'Unknown',
+                s.class_name || 'Not Assigned',
+                `<span class="student-points">${s.total_points || 0}</span>`,
+                tasksCompleted,
+                totalTasks > 0 ? 
+                    `<span class="completion-badge ${completionClass} text-white">${completionPct.toFixed(1)}%</span>` : 
+                    '<span class="text-muted">No tasks</span>',
+                `<div class="action-buttons" style="display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn btn-sm btn-view" onclick="viewStudent(${s.id})">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn btn-sm btn-edit" onclick="editStudent(${s.id}, '${s.name.replace(/'/g, "\\'")}')">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                </div>`
+            ]);
+        });
+        
+        studentsTable.draw();
+    }).fail(function(error) {
+        console.error('Error loading students:', error);
+        $('#studentsTable_info').text('Error loading data');
+    });
+}
+    
+    // View student details (single function)
+    function viewStudent(studentId) {
+        $.get(`/api/students/${studentId}`, function(data) {
+            const student = data.student;
+            const approvals = data.approvals || [];
+            
+            if (!student) {
+                $('#studentDetailsContent').html('<div class="alert alert-danger">Student not found</div>');
+                $('#studentDetailsModal').modal('show');
+                return;
+            }
+            
+            let html = `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">${escapeHtml(student.name)}</h5>
+                        <p class="card-text">
+                            <strong>City:</strong> ${escapeHtml(student.city_name || 'Unknown')}<br>
+                            <strong>Class:</strong> ${escapeHtml(student.class_name || 'Not Assigned')}<br>
+                            <strong>Total Points:</strong> <span class="student-points">${student.total_points || 0}</span><br>
+                            <strong>Total Tasks Completed:</strong> ${approvals.length}<br>
+                            <strong>Joined:</strong> ${new Date(student.created_at).toLocaleDateString()}
+                        </p>
+                    </div>
+                </div>
+                <h6>Task History</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Task</th>
+                                <th>Points</th>
+                                <th>Max Points</th>
+                                <th>Mentor</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            if (approvals.length === 0) {
+                html += `<tr><td colspan="6" class="text-center text-muted">No tasks completed yet</td></tr>`;
+            } else {
+                approvals.forEach(a => {
+                    html += `
+                        <tr>
+                            <td>${a.approval_date}</td>
+                            <td>${escapeHtml(a.tasks?.task_name || 'Unknown')}</td>
+                            <td>${a.grade_points}</td>
+                            <td>${a.tasks?.max_points || 'N/A'}</td>
+                            <td>${escapeHtml(a.mentor_signature)}</td>
+                            <td>
+                                <button class="btn btn-sm btn-edit" onclick="editApproval(${a.id}, ${a.grade_points})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-delete" onclick="deleteApproval(${a.id}, '${escapeHtml(student.name)}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            $('#studentDetailsContent').html(html);
+            $('#studentDetailsModal').modal('show');
+        }).fail(function() {
+            alert('Error loading student details');
+        });
+    }
+    
+    // Edit student name
+    function editStudent(studentId, currentName) {
+        let newName = prompt('Enter new name for student:', currentName);
+        if (newName && newName.trim() && newName.trim() !== currentName) {
+            // This would need a PUT endpoint - for now, show message
+            alert('Edit feature: Would rename "' + currentName + '" to "' + newName.trim() + '"');
+            // To implement fully, add a PUT endpoint in app.py
+        } else if (newName && newName.trim() === currentName) {
+            alert('Name unchanged');
+        }
+    }
+    
+    // Edit approval points
+    function editApproval(approvalId, currentPoints) {
+        let newPoints = prompt('Enter new points:', currentPoints);
+        if (newPoints && !isNaN(newPoints) && parseInt(newPoints) !== currentPoints) {
+            alert('Edit feature: Would update points from ' + currentPoints + ' to ' + parseInt(newPoints));
+            // This would need a PUT endpoint - for now, show message
+        }
+    }
+    
+    // Delete approval
+    function deleteApproval(approvalId, studentName) {
+        if (confirm(`Are you sure you want to delete this approval for ${studentName}?`)) {
+            $.ajax({
+                url: `/api/approvals/${approvalId}`,
+                method: 'DELETE',
+                success: function() {
+                    refreshAll();
+                    $('#studentDetailsModal').modal('hide');
+                    alert('Approval deleted successfully!');
+                },
+                error: function(xhr) {
+                    alert('Error deleting approval: ' + (xhr.responseJSON?.error || 'Unknown error'));
+                }
+            });
+        }
+    }
+    
+    // Escape HTML to prevent XSS
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    // Load activity log
+    function loadActivityLog() {
+        $.get('/api/activity-log', function(activities) {
+            let html = '';
+            if (!activities || activities.length === 0) {
+                html = '<div class="text-muted text-center p-3">No recent activity</div>';
+            } else {
+                activities.forEach(a => {
+                    const date = new Date(a.timestamp);
+                    const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                    
+                    let icon = 'fa-info-circle';
+                    if (a.action_type && a.action_type.includes('ADD')) icon = 'fa-plus-circle text-success';
+                    else if (a.action_type && a.action_type.includes('UPDATE')) icon = 'fa-edit text-primary';
+                    else if (a.action_type && a.action_type.includes('DELETE')) icon = 'fa-trash text-danger';
+                    
+                    html += `
+                        <div class="activity-item">
+                            <div class="d-flex justify-content-between">
+                                <small class="activity-time">
+                                    <i class="fas fa-clock me-1"></i>${timeStr}
+                                </small>
+                                <span class="badge bg-light text-dark activity-badge">${a.action_type || 'INFO'}</span>
+                            </div>
+                            <div class="mt-1">
+                                <i class="fas ${icon} me-2"></i>
+                                ${escapeHtml(a.description || 'No description')}
+                            </div>
+                            <small class="text-muted">by ${escapeHtml(a.user_name || 'System')}</small>
+                        </div>
+                    `;
+                });
+            }
+            $('#activityLog').html(html);
+        }).fail(function() {
+            $('#activityLog').html('<div class="text-muted text-center p-3">Error loading activity log</div>');
+        });
+    }
+    
+    // Submit approval form
+    $('#approvalForm').submit(function(e) {
+        e.preventDefault();
+        
+        const cityId = currentCityId;
+        if (!cityId) {
+            alert('Please select a city first');
+            return;
+        }
+        
+        const classId = $('#classSelect').val();
+        if (!classId) {
+            alert('Please select a class');
+            return;
+        }
+        
+        const taskId = $('#taskSelect').val();
+        if (!taskId) {
+            alert('Please select a task');
+            return;
+        }
+        
+        const points = parseInt($('#gradePoints').val());
+        const maxPoints = parseInt($('#taskSelect option:selected').data('max'));
+        
+        if (isNaN(points) || points < 0) {
+            alert('Please enter valid points');
+            return;
+        }
+        
+        if (points > maxPoints) {
+            alert(`Points cannot exceed maximum (${maxPoints})`);
+            return;
+        }
+        
+        const data = {
+            student_name: $('#studentName').val().trim(),
+            city_id: parseInt(cityId),
+            class_id: parseInt(classId),
+            task_id: parseInt(taskId),
+            grade_points: points,
+            mentor_signature: $('#mentorSignature').val().trim(),
+            approval_date: $('#approvalDate').val()
+        };
+        
+        if (!data.student_name) {
+            alert('Please enter a student name');
+            return;
+        }
+        
+        $.ajax({
+            url: '/api/approvals',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(response) {
+                $('#approvalForm')[0].reset();
+                $('#approvalDate').val(new Date().toISOString().split('T')[0]);
+                refreshAll();
+                alert(`Approval recorded! Student total: ${response.student_total} points`);
+            },
+            error: function(xhr) {
+                alert('Error: ' + (xhr.responseJSON?.error || 'Unknown error'));
+            }
+        });
+    });
+    
+    // Save new class
+    $('#saveClassBtn').click(function() {
+        const cityId = $('#newClassCity').val();
+        const name = $('#newClassName').val().trim();
+        
+        if (!cityId) {
+            alert('Please select a city');
+            return;
+        }
+        if (!name) {
+            alert('Please enter a class name');
+            return;
+        }
+        
+        $.ajax({
+            url: '/api/classes',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({city_id: parseInt(cityId), name: name}),
+            success: function() {
+                $('#addClassModal').modal('hide');
+                $('#newClassName').val('');
+                loadClassesForSelect();
+                refreshAll();
+                alert('Class added successfully!');
+            },
+            error: function(xhr) {
+                alert('Error: ' + (xhr.responseJSON?.error || 'Class may already exist'));
+            }
+        });
+    });
+    
+    // Save new task
+    $('#saveTaskBtn').click(function() {
+        const classId = $('#newTaskClass').val();
+        const taskName = $('#newTaskName').val().trim();
+        const maxPoints = parseInt($('#newTaskMaxPoints').val());
+        
+        if (!classId) {
+            alert('Please select a class');
+            return;
+        }
+        if (!taskName) {
+            alert('Please enter a task name');
+            return;
+        }
+        if (maxPoints <= 0) {
+            alert('Max points must be greater than 0');
+            return;
+        }
+        
+        $.ajax({
+            url: '/api/tasks',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                class_id: parseInt(classId),
+                task_name: taskName,
+                max_points: maxPoints
+            }),
+            success: function() {
+                $('#addTaskModal').modal('hide');
+                $('#newTaskName').val('');
+                $('#newTaskMaxPoints').val('100');
+                const currentClassId = $('#classSelect').val();
+                if (currentClassId) loadTasks(currentClassId);
+                refreshAll();
+                alert('Task added successfully!');
+            },
+            error: function(xhr) {
+                alert('Error: ' + (xhr.responseJSON?.error || 'Task may already exist'));
+            }
+        });
+    });
+    
+    // Save new student
+    $('#saveStudentBtn').click(function() {
+        const name = $('#newStudentName').val().trim();
+        const cityId = $('#newStudentCity').val();
+        const classId = $('#newStudentClass').val();
+        
+        if (!name) {
+            alert('Please enter a student name');
+            return;
+        }
+        if (!cityId) {
+            alert('Please select a city');
+            return;
+        }
+        
+        const data = {
+            name: name,
+            city_id: parseInt(cityId),
+            class_id: classId ? parseInt(classId) : null
+        };
+        
+        $.ajax({
+            url: '/api/students',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                $('#addStudentModal').modal('hide');
+                $('#newStudentName').val('');
+                refreshAll();
+                alert('Student added successfully!');
+            },
+            error: function(xhr) {
+                alert('Error: ' + (xhr.responseJSON?.error || 'Student may already exist'));
+            }
+        });
+    });
+    
+    // Download Excel
+    $('#downloadExcelBtn').click(function() {
+        let url = '/api/download-excel';
+        if (currentCityId) {
+            url += `?city_id=${currentCityId}`;
+        }
+        window.location.href = url;
+    });
+    
+    // Refresh all data
+    function refreshAll() {
+        loadStudents();
+        loadActivityLog();
+        loadClassesForSelect();
+    }
+    
+    // Auto-refresh every 30 seconds
+    setInterval(function() {
+        if (document.visibilityState === 'visible') {
+            loadActivityLog();
+        }
+    }, 30000);
+</script>
+</body>
+</html>
