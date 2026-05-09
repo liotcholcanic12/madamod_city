@@ -1,2 +1,24 @@
-.vercel
-.env*.local
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# SQLite — don't commit the database file
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Vercel
+.vercel/
+
+# OS
+.DS_Store
+Thumbs.db
