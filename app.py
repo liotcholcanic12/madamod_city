@@ -35,6 +35,15 @@ def get_cities():
         return jsonify([])
 
 
+@app.route('/api/debug-students')
+def debug_students():
+    try:
+        result = supabase.table('students').select('*').execute()
+        return jsonify({'success': True, 'count': len(result.data), 'data': result.data})
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()})
+
 # ── Classes ─────────────────────────────────────────────────────────────────
 
 @app.route('/api/classes')
