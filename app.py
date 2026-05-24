@@ -58,7 +58,7 @@ def get_cities():
 @app.route('/api/classes')
 def get_classes():
     try:
-        params = {'order': 'name'}
+        params = {'order': 'id'}
         city_id = request.args.get('city_id')
         if city_id:
             params['city_id'] = f'eq.{city_id}'
