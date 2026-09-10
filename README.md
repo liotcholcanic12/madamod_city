@@ -14,7 +14,7 @@ A simple web application for tracking student tasks and approvals, built with Fl
 
 ## 🚀 Live Demo
 
-[Your Vercel URL here]
+https://madamod-city.vercel.app/
 
 ## 🛠️ Tech Stack
 
